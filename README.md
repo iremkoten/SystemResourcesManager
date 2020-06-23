@@ -8,3 +8,5 @@ which includes CPU usages, RAM usages, disk usages and network usages.
 
 # TECHNOLOGIES
 MS Visual Studio 2019, QT Creator 4
+
+NOTE: Files uploaded in txt format. When you run it, you use any C++ editor.
