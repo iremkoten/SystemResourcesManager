@@ -1,0 +1,265 @@
+#pragma once
+#include "VmsSystemResourceManagerExportImport.h"
+#include "VmsSingletonPattern.h"
+#include <boost/thread/recursive_mutex.hpp>
+#include <sigar.h>
+#include <QTimer>
+#include <mutex>
+
+namespace Vms
+{
+	namespace SystemResource
+	{
+		struct MemoryData
+		{
+			std::atomic<float>			MemoryUsagePercentage;
+			std::atomic<float>			MemoryFreePercentage;
+			std::atomic<float>			TotalMemory;
+			std::atomic<float>			MemoryUsage;
+			std::atomic<float>			MemoryFree;
+
+			/**
+			* \brief constructor
+			*/
+			MemoryData() {}
+
+			/**
+			* \brief  copy constructor
+			*/
+			MemoryData(const MemoryData& copy)
+			{
+				MemoryUsagePercentage.store(copy.MemoryUsagePercentage.load());
+				MemoryFreePercentage.store(copy.MemoryFreePercentage.load());
+				TotalMemory.store(copy.TotalMemory.load());
+				MemoryUsage.store(copy.MemoryUsage.load());
+				MemoryFree.store(copy.MemoryFree.load());
+			}
+		};
+
+		struct DiskData
+		{
+			std::string					DiskName;
+			std::atomic<float>			Total;
+			std::atomic<float>			Free;
+			std::atomic<float>			Used;
+			std::atomic<float>			UsedPercentage;
+
+			/**
+			* \brief constructor
+			*/
+			DiskData() {}
+
+			/**
+			* \brief  copy constructor
+			*/
+			DiskData(const DiskData& copy)
+			{
+				DiskName = copy.DiskName;
+				Total.store(copy.Total.load());
+				Free.store(copy.Free.load());
+				Used.store(copy.Used.load());
+				UsedPercentage.store(copy.UsedPercentage.load());
+			}
+		};
+
+		struct NetworkData
+		{
+			std::atomic<float>			ReceivedBytesPerSecond;
+			std::atomic<float>			SentBytesPerSecond;
+			std::string					InterfaceDescription;
+			std::atomic<unsigned int>	In;
+			std::string					Name;
+			std::string					Mac;
+
+			/**
+			* \brief constructor
+			*/
+			NetworkData() {}
+
+			/**
+			* \brief  copy constructor
+			*/
+			NetworkData(const NetworkData& copy)
+			{
+				ReceivedBytesPerSecond.store(copy.ReceivedBytesPerSecond.load());
+				SentBytesPerSecond.store(copy.SentBytesPerSecond.load());
+				InterfaceDescription = copy.InterfaceDescription;
+				In.store(copy.In.load());
+				Name = copy.Name;
+				Mac = copy.Mac;
+			}
+		};
+
+		struct CpuData
+		{
+			std::atomic<float>			TotalCpuUsagePercentage;
+			std::atomic<float>			TotalCpuFreePercentage;
+			std::atomic_int				NumberOfCores;
+
+			/**
+			* \brief constructor
+			*/
+			CpuData() {}
+
+			/**
+			* \brief  copy constructor
+			*/
+			CpuData(const CpuData& copy)
+			{
+				TotalCpuUsagePercentage.store(copy.TotalCpuUsagePercentage.load());
+				TotalCpuFreePercentage.store(copy.TotalCpuFreePercentage.load());
+				NumberOfCores.store(copy.NumberOfCores.load());
+			}
+		};
+
+		class VMS_SYSTEM_RESOURCE_MANAGER_EXT_CLASS VmsSystemResourceManager :
+			public QObject, public DesignPatterns::VmsSingletonPattern
+		<VmsSystemResourceManager>
+		{
+			Q_OBJECT
+
+				friend VmsSingletonPattern<VmsSystemResourceManager>;
+
+		public:
+
+			/**
+			 * \brief
+			 * Set calculated values to actual variables
+			 * \return  current memory info
+			 */
+			MemoryData					GetMemoryInfo() const;
+
+			/**
+			 * \brief
+			 * Calculate disk info and set this values to actual variables
+			 * \return current disk info
+			 */
+			std::vector<DiskData>		GetDiskInfo() const;
+
+			/**
+			 * \brief
+			 * Find disk name
+			 * \return current disk name
+			 */
+			std::vector<std::string>	GetDiskName() const;
+
+			/**
+			 * \brief
+			 * Calculate network info and set this values to actual variables
+			 * \return current network info
+			 */
+			std::vector<NetworkData>	GetNetworkInfo();
+
+			/**
+			 * \brief
+			 * Call CalculateMedianCpuUsage function
+			 * \return CalculateMedianCpuUsage function
+			 */
+			float						GetTotalCpuUsedPercent() const;
+
+			/**
+			 * \brief
+			 * Calculate total core number
+			 * \return current total core number
+			 */
+			unsigned int				GetTotalCoreNumber() const;
+
+			/**
+			 * \brief
+			 * Set calculated values to actual variables
+			 * \return current cpu info
+			 */
+			CpuData						GetCpuInfo() const;
+
+		private slots:
+
+			/**
+			 * \brief
+			 * Call some functions which must recalculate continuously
+			 */
+			void						Mytimer();
+
+		private:
+
+			/**
+			 * \brief constructor
+			 */
+			VmsSystemResourceManager();
+
+			/**
+			 * \brief destructor
+			 */
+			~VmsSystemResourceManager();
+
+			/**
+			 * \brief
+			 * Calculate memory used percentage
+			 * \return current memory used percentage
+			 */
+			float						CalculateMemoryUsedPercent() const;
+
+			/**
+			 * \brief
+			 * Calculate memory free percentage
+			 * \return current memory free percentage
+			 */
+			float						CalculateMemoryFreePercent() const;
+
+			/**
+			 * \brief
+			 * Calculate total memory
+			 * \return current total memory
+			 */
+			float						CalculateTotalMemory() const;
+
+			/**
+			 * \brief
+			 * Calculate used memory
+			 * \return current used memory
+			 */
+			float						CalculateMemoryUsed() const;
+
+			/**
+			 * \brief
+			 * Calculate free memory
+			 * \return current free memory
+			 */
+			float						CalculateMemoryFree() const;
+
+			/**
+			 * \brief
+			 * Calculate cpu usage
+			 * \return current cpu usage
+			 */
+			std::vector<float>			CalculateCpuUsage() const;
+
+			/**
+			 * \brief
+			 *  Delete least recent vector called m_CpuUsageHistory
+			 * \param cpuUsage
+			 */
+			void						AddCpuUsageToHistory(const float& cpuUsage);
+
+			/**
+			 * \brief
+			 * Calculate median 3/4'th element with sleep = 250 and historySize = 13
+			 * return 3/4'th element
+			 */
+			float						CalculateMedianCpuUsage() const;
+
+			/**
+			 * \brief
+			 * Calculate current cpu usage
+			 */
+			void						GatherCpuHistoryRun();
+
+			static std::mutex			s_CpuUsageMutex;
+			static std::mutex			s_CpuUsageCigarMutex;
+			std::vector<float>			m_CpuUsageHistory;
+			int							m_NCpuUsageHistoryLength;
+			sigar_t*					m_Sigar;
+			boost::recursive_mutex		m_NMutex;
+
+		};
+	}
+}

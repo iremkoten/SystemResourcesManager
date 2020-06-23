@@ -1,0 +1,64 @@
+VmsDefinition.h
+
+#pragma once
+
+#include "VmsBaseExportImport.h"
+
+#ifndef VMS_UTILS_DELETE
+#define VMS_UTILS_DELETE(obj) {if(obj != NULL || obj != 0) delete obj; obj = NULL;}
+#endif
+
+#ifdef WIN32
+#ifndef VMS_UTILS_FUNCTION
+#define  VMS_UTILS_FUNCTION (__FUNCSIG__)
+#endif
+#ifndef VMS_UTILS_FILE
+#define  VMS_UTILS_FILE (__FILE__)
+#endif
+#else
+#ifndef VMS_UTILS_FUNCTION
+#define  VMS_UTILS_FUNCTION (__func__)
+#endif
+#ifndef VMS_UTILS_FILE
+#define  VMS_UTILS_FILE (__BASE_FILE__)
+#endif
+#endif
+
+#ifndef VMS_UTILS_FILE_FUNCTION
+#define  VMS_UTILS_FILE_FUNCTION std::string("File: ").append(std::string(VMS_UTILS_FILE).append(std::string("\tFunction: ")).append(std::string(VMS_UTILS_FUNCTION)).append(std::string("\tLog: ")))
+#endif
+
+#ifndef VMS_UTILS_SCOPED_LOCK
+#define VMS_UTILS_SCOPED_LOCK(mutexObject) boost::mutex::scoped_lock lock_Variable_(mutexObject)
+#endif
+
+#ifndef VMS_UTILS_RECURSIVE_SCOPED_LOCK
+#define VMS_UTILS_RECURSIVE_SCOPED_LOCK(mutexObject) boost::recursive_mutex::scoped_lock lock_Variable_(mutexObject)
+#endif
+
+#ifndef VMS_UTILS_SLEEP_MS
+#define VMS_UTILS_SLEEP_MS(ms) boost::this_thread::sleep(boost::posix_time::milliseconds(ms))
+#endif
+
+#ifndef VMS_UTILS_SLEEP_SEC
+#define VMS_UTILS_SLEEP_SEC(sec) VMS_UTILS_SLEEP_MS(sec * 1000)
+#endif
+
+#ifndef VMS_UTILS_DISABLE_COPY
+#define VMS_UTILS_DISABLE_COPY(className) className(className const&) = delete; \
+										  className(className&&) = delete; \
+										  className& operator=(className const&) = delete; \
+										  className& operator=(className &&) = delete;
+#endif
+
+#ifndef KB_PER_GB
+#define KB_PER_GB 1048576
+#endif
+
+#ifndef VMS_DELETE
+#define VMS_DELETE(obj) {if(obj != nullptr || obj != 0) delete obj; obj = nullptr;}
+#endif
+
+#ifndef VMS_LEXICAL_CAST
+#define VMS_LEXICAL_CAST(desType,source) boost::lexical_cast<desType>(source)
+#endif

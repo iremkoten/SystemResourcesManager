@@ -1,0 +1,40 @@
+#pragma once
+
+#include "VmsDefinition.h"
+/*
+ * Singleton Base Class
+ * To make any class singleton, derive from this class and 
+ * make this class friend of the class to be singleton.
+ * 
+ *  class AnyClass : public  Vms::DesignPatterns::VmsSingletonPattern<AnyClass>
+ *  {
+ *		friend class Vms::DesignPatterns::VmsSingletonPattern<AnyClass>;
+ *		
+ *		private:
+ *			AnyClass();
+ *			~AnyClass();
+ *  };
+ */
+namespace Vms
+{
+	namespace DesignPatterns
+	{
+		template <class T>
+		class VmsSingletonPattern
+		{
+		public:
+			static T& Instance()
+			{
+				static T instance;
+				return instance;
+			}
+
+		protected:
+			VmsSingletonPattern() = default;
+			~VmsSingletonPattern() = default;
+		public:
+			VMS_UTILS_DISABLE_COPY(VmsSingletonPattern)
+		};
+	}
+}
+

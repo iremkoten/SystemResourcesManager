@@ -1,0 +1,51 @@
+#include "VmsSystemResourceWidget.h"
+#include "ui_VmsSystemResourceWidget.h"
+#include "VmsSystemResourceManager.h"
+#include <QTimer>
+
+Vms::GuiWidgets::VmsSystemResourceWidget::VmsSystemResourceWidget(QWidget *parent) :
+	VmsQtWidgetBase(parent)
+{
+	m_Ui = new Ui::VmsSystemResourceWidget();
+    m_Ui->setupUi(this);
+
+	QTimer *timer = new QTimer(this);
+	connect(timer, SIGNAL(timeout()), this, SLOT((UpdateCpuBar())));
+	connect(timer, SIGNAL(timeout()), this, SLOT((UpdateMemoryBar())));
+	timer->start(1000);
+}
+
+Vms::GuiWidgets::VmsSystemResourceWidget::~VmsSystemResourceWidget()
+{
+    delete m_Ui;
+}
+
+void Vms::GuiWidgets::VmsSystemResourceWidget::UpdateCpuBar() const
+{
+	m_Ui->CpuBar->setValue(SystemResource::VmsSystemResourceManager
+		::Instance().GetCpuInfo().TotalCpuUsagePercentage);
+
+	if(m_Ui->CpuBar->value()<70)
+        m_Ui->CpuBar->setStyleSheet(m_safeColor);
+
+    if(m_Ui->CpuBar->value()>=70 && m_Ui->CpuBar->value()<90)
+        m_Ui->CpuBar->setStyleSheet(m_normalColor);
+
+    if(m_Ui->CpuBar->value()>=90)
+        m_Ui->CpuBar->setStyleSheet(m_DangerColor);
+}
+
+void Vms::GuiWidgets::VmsSystemResourceWidget::UpdateMemoryBar() const
+{
+	m_Ui->CpuBar->setValue(SystemResource::VmsSystemResourceManager
+		::Instance().GetMemoryInfo().MemoryUsagePercentage);
+
+	if (m_Ui->MemoryBar->value() < 70)
+		m_Ui->MemoryBar->setStyleSheet(m_safeColor);
+
+	if (m_Ui->MemoryBar->value() >= 70 && m_Ui->MemoryBar->value() < 90)
+		m_Ui->MemoryBar->setStyleSheet(m_normalColor);
+
+	if (m_Ui->MemoryBar->value() >= 90)
+		m_Ui->MemoryBar->setStyleSheet(m_DangerColor);
+}

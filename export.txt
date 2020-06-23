@@ -1,0 +1,18 @@
+VmsBaseExportImport.h
+
+
+#pragma once
+
+#include <QtCore/QtGlobal>
+
+#ifdef VMS_BASE_EXPORTS
+#	define VMS_BASE_EXT_CLASS Q_DECL_EXPORT
+#else
+#	define VMS_BASE_EXT_CLASS Q_DECL_IMPORT
+#endif
+
+
+#ifndef UTILSTYPES_H
+#include "VmsTypes.h"
+#endif
+

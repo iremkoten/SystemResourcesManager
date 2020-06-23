@@ -1,0 +1,78 @@
+/********************************************************************************
+** Form generated from reading UI file 'VmsSystemResourceWidget.ui'
+**
+** Created by: Qt User Interface Compiler version 5.12.1
+**
+** WARNING! All changes made in this file will be lost when recompiling UI file!
+********************************************************************************/
+
+#ifndef UI_VMSSYSTEMRESOURCEWIDGET_H
+#define UI_VMSSYSTEMRESOURCEWIDGET_H
+
+#include <QtCore/QVariant>
+#include <QtGui/QIcon>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QProgressBar>
+#include <QtWidgets/QPushButton>
+#include <QtWidgets/QWidget>
+
+QT_BEGIN_NAMESPACE
+
+class Ui_VmsSystemResourceWidget
+{
+public:
+    QPushButton *MemoryButton;
+    QPushButton *CpuButton;
+    QProgressBar *MemoryBar;
+    QProgressBar *CpuBar;
+
+    void setupUi(QWidget *VmsSystemResourceWidget)
+    {
+        if (VmsSystemResourceWidget->objectName().isEmpty())
+            VmsSystemResourceWidget->setObjectName(QString::fromUtf8("VmsSystemResourceWidget"));
+        VmsSystemResourceWidget->resize(161, 76);
+        MemoryButton = new QPushButton(VmsSystemResourceWidget);
+        MemoryButton->setObjectName(QString::fromUtf8("MemoryButton"));
+        MemoryButton->setGeometry(QRect(10, 10, 31, 21));
+        MemoryButton->setStyleSheet(QString::fromUtf8(""));
+        QIcon icon;
+        icon.addFile(QString::fromUtf8(":/image/images/ram.jpg"), QSize(), QIcon::Normal, QIcon::Off);
+        MemoryButton->setIcon(icon);
+        MemoryButton->setIconSize(QSize(40, 40));
+        CpuButton = new QPushButton(VmsSystemResourceWidget);
+        CpuButton->setObjectName(QString::fromUtf8("CpuButton"));
+        CpuButton->setGeometry(QRect(10, 40, 31, 21));
+        QIcon icon1;
+        icon1.addFile(QString::fromUtf8(":/image/images/cpu.png"), QSize(), QIcon::Normal, QIcon::Off);
+        CpuButton->setIcon(icon1);
+        CpuButton->setIconSize(QSize(30, 30));
+        MemoryBar = new QProgressBar(VmsSystemResourceWidget);
+        MemoryBar->setObjectName(QString::fromUtf8("MemoryBar"));
+        MemoryBar->setGeometry(QRect(60, 10, 101, 23));
+        MemoryBar->setValue(24);
+        CpuBar = new QProgressBar(VmsSystemResourceWidget);
+        CpuBar->setObjectName(QString::fromUtf8("CpuBar"));
+        CpuBar->setGeometry(QRect(60, 40, 101, 23));
+        CpuBar->setValue(24);
+
+        retranslateUi(VmsSystemResourceWidget);
+
+        QMetaObject::connectSlotsByName(VmsSystemResourceWidget);
+    } // setupUi
+
+    void retranslateUi(QWidget *VmsSystemResourceWidget)
+    {
+        VmsSystemResourceWidget->setWindowTitle(QApplication::translate("VmsSystemResourceWidget", "VmsSystemResourceWidget", nullptr));
+        MemoryButton->setText(QString());
+        CpuButton->setText(QString());
+    } // retranslateUi
+
+};
+
+namespace Ui {
+    class VmsSystemResourceWidget: public Ui_VmsSystemResourceWidget {};
+} // namespace Ui
+
+QT_END_NAMESPACE
+
+#endif // UI_VMSSYSTEMRESOURCEWIDGET_H

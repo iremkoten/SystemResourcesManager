@@ -1,0 +1,317 @@
+#include "VmsSystemResourceManager.h"
+#include "VmsDefinition.h"
+#include <QTimer>
+#include <sigar.h>
+
+#define BYTES_PER_GB 1073742020.391822;
+
+extern "C" {
+#include <sigar_format.h>
+}
+
+std::mutex Vms::SystemResource::VmsSystemResourceManager::s_CpuUsageMutex;
+std::mutex Vms::SystemResource::VmsSystemResourceManager::s_CpuUsageCigarMutex;
+
+Vms::SystemResource::VmsSystemResourceManager::VmsSystemResourceManager() : QObject()
+{
+	sigar_open(&m_Sigar);
+	m_NCpuUsageHistoryLength = 13;
+	QTimer *timer = new QTimer(this);
+	connect(timer, SIGNAL(timeout()), this, SLOT(Mytimer()));
+	timer->start(250);
+}
+
+Vms::SystemResource::VmsSystemResourceManager::~VmsSystemResourceManager() 
+{}
+
+void Vms::SystemResource::VmsSystemResourceManager::Mytimer()
+{
+	GatherCpuHistoryRun();
+	CalculateMemoryUsedPercent();
+	CalculateMemoryFreePercent();
+	CalculateTotalMemory();
+	CalculateMemoryUsed();
+	CalculateMemoryFree();
+}
+
+float Vms::SystemResource::VmsSystemResourceManager::CalculateMemoryUsedPercent() const
+{
+	sigar_mem_t memory;	
+	sigar_mem_get(m_Sigar, &memory);
+	return memory.used_percent;
+}
+
+float Vms::SystemResource::VmsSystemResourceManager::CalculateMemoryFreePercent() const
+{
+	sigar_mem_t memory;
+	sigar_mem_get(m_Sigar, &memory);
+	return memory.free_percent;
+}
+
+float Vms::SystemResource::VmsSystemResourceManager::CalculateTotalMemory() const
+{
+	sigar_mem_t memory;
+	sigar_mem_get(m_Sigar, &memory);
+	return memory.total / BYTES_PER_GB;
+}
+
+float Vms::SystemResource::VmsSystemResourceManager::CalculateMemoryUsed() const
+{
+	sigar_mem_t memory;
+	sigar_mem_get(m_Sigar, &memory);
+	return memory.actual_used / BYTES_PER_GB;
+}
+
+float Vms::SystemResource::VmsSystemResourceManager::CalculateMemoryFree() const
+{
+	sigar_mem_t memory;
+	sigar_mem_get(m_Sigar, &memory);
+	return memory.actual_free / BYTES_PER_GB;
+}
+
+Vms::SystemResource::MemoryData Vms::SystemResource::VmsSystemResourceManager::GetMemoryInfo() 
+const
+{
+	MemoryData memoryModel;
+
+	const double memUsagePercent = CalculateMemoryUsedPercent();
+	const double memFreePercent = 100.0 - memUsagePercent;
+	const double totalMem = CalculateTotalMemory();
+	const double memUsage = totalMem * memUsagePercent / 100;
+	const double memFree = totalMem * memFreePercent / 100;
+
+	memoryModel.MemoryUsagePercentage.store(memUsagePercent);
+	memoryModel.MemoryFreePercentage.store(memFreePercent);
+	memoryModel.TotalMemory.store(totalMem);
+	memoryModel.MemoryUsage.store(memUsage);
+	memoryModel.MemoryFree.store(memFree);
+	return memoryModel;
+}
+
+std::vector<Vms::SystemResource::DiskData> Vms::SystemResource::VmsSystemResourceManager
+::GetDiskInfo() const
+{
+	DiskData diskModel;
+	std::vector<DiskData> diskList;
+	sigar_file_system_list_t *fsList = new sigar_file_system_list_t();
+	sigar_file_system_list_get(m_Sigar, fsList);
+
+	for (size_t i = 0; i < fsList->number; i++)
+	{
+		if (fsList->data[i].type == SIGAR_FSTYPE_LOCAL_DISK)
+		{
+			sigar_file_system_usage_t fsusage;
+			sigar_file_system_usage_get(m_Sigar, fsList->data[i].dir_name, &fsusage);
+
+			diskModel.DiskName = std::string(fsList->data[i].dir_name);
+			diskModel.Free.store(fsusage.free / KB_PER_GB);
+			diskModel.Total.store(fsusage.total / KB_PER_GB);
+			diskModel.Used.store(fsusage.used / KB_PER_GB);
+			diskModel.UsedPercentage.store(fsusage.use_percent * 100);
+
+			diskList.push_back(diskModel);
+		}
+	}
+
+	sigar_file_system_list_destroy(m_Sigar, fsList);
+	delete fsList;
+	return diskList;
+}
+
+std::vector<std::string> Vms::SystemResource::VmsSystemResourceManager::GetDiskName() const
+{
+	std::vector<std::string> name;
+	sigar_file_system_list_t *fsList = new sigar_file_system_list_t();
+	sigar_file_system_list_get(m_Sigar, fsList);
+
+	for (size_t i = 0; i < fsList->number; i++)
+	{
+		if (fsList->data[i].type == SIGAR_FSTYPE_LOCAL_DISK)
+			name.push_back(VMS_LEXICAL_CAST(std::string, fsList->data[i].dir_name));
+	}
+
+	sigar_file_system_list_destroy(m_Sigar, fsList);
+	VMS_DELETE(fsList);
+	return name;
+}
+
+std::vector<Vms::SystemResource::NetworkData> Vms::SystemResource
+::VmsSystemResourceManager::GetNetworkInfo()
+{
+	boost::recursive_mutex::scoped_lock lock(m_NMutex);
+	NetworkData networkModel;
+	std::vector<NetworkData> networkList;
+	sigar_net_interface_list_t *iList = new sigar_net_interface_list_t();
+	sigar_net_interface_list_get(m_Sigar, iList);
+
+	// initial bytes.
+	for (size_t i = 0; i < iList->number; i++)
+	{
+		sigar_net_interface_config_t ifconfig;
+		sigar_net_interface_config_get(m_Sigar, iList->data[i], &ifconfig);
+		bool alreadyAdded = false;
+
+		for (unsigned int j = 0; j < networkList.size(); j++)
+		{
+			if (networkList.at(j).In.load() == ifconfig.hwaddr.addr.in)     
+			{
+				alreadyAdded = true;
+				break;
+			}
+		}
+
+		if (!alreadyAdded)
+		{
+			sigar_net_interface_stat_t stat;
+			sigar_net_interface_stat_get(m_Sigar, iList->data[i], &stat);
+			networkModel.ReceivedBytesPerSecond.store(stat.rx_bytes);
+			networkModel.SentBytesPerSecond.store(stat.tx_bytes);
+			networkModel.InterfaceDescription = ifconfig.description;
+			networkModel.In.store(ifconfig.hwaddr.addr.in);
+			networkModel.Name = iList->data[i];
+			networkModel.Mac = VMS_LEXICAL_CAST(std::string, ifconfig.hwaddr.addr.mac);
+			networkList.push_back(networkModel); 
+		}
+	}
+
+	VMS_UTILS_SLEEP_MS(1000);
+
+	//// final bytes
+	std::vector<NetworkData> list;
+	for (int i = 0; i < networkList.size(); i++)
+	{
+		sigar_net_interface_stat_t stat;
+		sigar_net_interface_stat_get(m_Sigar, networkList.at(i).Name.c_str(), &stat);
+		networkList.at(i).ReceivedBytesPerSecond.store(stat.rx_bytes - 
+			networkList.at(i).ReceivedBytesPerSecond.load());
+		networkList.at(i).SentBytesPerSecond.store(stat.tx_bytes - 
+			networkList.at(i).SentBytesPerSecond.load());
+		list.push_back(networkList.at(i));
+	}
+
+	sigar_net_interface_list_destroy(m_Sigar, iList);
+	VMS_DELETE(iList);
+	return list;
+}
+
+static float calculateCpuLoad(const unsigned long long idleTicks, 
+	const unsigned long long totalTicks)
+{
+	static unsigned long long previousTotalTicks = 0;
+	static unsigned long long previousIdleTicks = 0;
+
+	const unsigned long long totalTicksSinceLastTime = totalTicks - previousTotalTicks;
+	const unsigned long long idleTicksSinceLastTime = idleTicks - previousIdleTicks;
+
+	const float temp = 1.0f - (totalTicksSinceLastTime > 0 ? 
+		static_cast<float>(idleTicksSinceLastTime) / totalTicksSinceLastTime : 0);
+
+	previousTotalTicks = totalTicks;
+	previousIdleTicks = idleTicks;
+	return temp;
+}
+
+static unsigned long long fileTimeToInt64(const FILETIME & ft)
+{
+	return unsigned long long(ft.dwHighDateTime) << 32 | 
+		static_cast<unsigned long long>(ft.dwLowDateTime);
+}
+
+float getCpuLoad()
+{
+	FILETIME idleTime, kernelTime, userTime;
+	return GetSystemTimes(&idleTime, &kernelTime, &userTime) ? 
+		calculateCpuLoad(fileTimeToInt64(idleTime), 
+			fileTimeToInt64(kernelTime) + fileTimeToInt64(userTime)) : -1.0f;
+}
+
+void Vms::SystemResource::VmsSystemResourceManager::AddCpuUsageToHistory(const float& cpuUsage)
+{
+	std::unique_lock<std::mutex> lock(s_CpuUsageMutex);
+	m_CpuUsageHistory.push_back(cpuUsage);
+
+	if (m_CpuUsageHistory.size() > m_NCpuUsageHistoryLength)
+	{
+		m_CpuUsageHistory.erase(m_CpuUsageHistory.begin());
+	}
+}
+
+float Vms::SystemResource::VmsSystemResourceManager::CalculateMedianCpuUsage() const
+{
+	boost::unique_lock<std::mutex> lock(s_CpuUsageMutex);
+
+	if (m_CpuUsageHistory.empty())
+		return 0.f;
+
+	// keep the order of history data to delete them with time order
+	auto tempUsageHistory = m_CpuUsageHistory;
+	sort(tempUsageHistory.begin(), tempUsageHistory.end());
+
+	// rather than using median 3/4'th element gave more accurate results
+	// with sleep = 250 and historySize = 13, experimental!!
+	const int medianIdx = tempUsageHistory.size() * 0.75;
+	return tempUsageHistory.at(medianIdx) * 100;
+}
+
+void Vms::SystemResource::VmsSystemResourceManager::GatherCpuHistoryRun()
+{
+	const auto currentCpuUsage = getCpuLoad();
+	AddCpuUsageToHistory(currentCpuUsage);
+}
+
+float Vms::SystemResource::VmsSystemResourceManager::GetTotalCpuUsedPercent() const
+{
+	return CalculateMedianCpuUsage();
+}
+
+unsigned int Vms::SystemResource::VmsSystemResourceManager::GetTotalCoreNumber() const
+{
+	std::unique_lock<std::mutex> lock(s_CpuUsageCigarMutex);
+	sigar_cpu_list_t *cpuListCurr = new sigar_cpu_list_t();
+	sigar_cpu_list_get(m_Sigar, cpuListCurr);
+	const unsigned long coreNumber = cpuListCurr->number;
+	sigar_cpu_list_destroy(m_Sigar, cpuListCurr);
+	VMS_DELETE(cpuListCurr);
+	return coreNumber;
+}
+
+std::vector<float> Vms::SystemResource::VmsSystemResourceManager::CalculateCpuUsage() const
+{
+	std::unique_lock<std::mutex>lock(s_CpuUsageCigarMutex);
+	std::vector<float> usage;
+	sigar_cpu_list_t* cpuListPrev = new sigar_cpu_list_t();
+	sigar_cpu_list_get(m_Sigar, cpuListPrev);
+	VMS_UTILS_SLEEP_MS(375);
+	sigar_cpu_list_t *cpuListCurr = new sigar_cpu_list_t();
+	sigar_cpu_list_get(m_Sigar, cpuListCurr);
+	sigar_cpu_perc_t *cpuPerc = new sigar_cpu_perc_t();
+
+	for (unsigned long i = 0; i < cpuListCurr->number; i++)
+	{
+		if (sigar_cpu_perc_calculate(&cpuListPrev->data[i], 
+			&cpuListCurr->data[i], cpuPerc) == SIGAR_OK)
+		{
+			usage.push_back(cpuPerc->combined * 100);
+		}
+	}
+
+	sigar_cpu_list_destroy(m_Sigar, cpuListPrev);
+	sigar_cpu_list_destroy(m_Sigar, cpuListCurr);
+	VMS_DELETE(cpuListPrev);
+	VMS_DELETE(cpuListCurr);
+	VMS_DELETE(cpuPerc);
+	return usage;
+}
+
+Vms::SystemResource::CpuData Vms::SystemResource::VmsSystemResourceManager::GetCpuInfo() const
+{
+	CpuData cpuModel;
+	const float cpuUsage = GetTotalCpuUsedPercent();
+	const float cpuFree = 100.0 - cpuUsage;
+
+	cpuModel.TotalCpuUsagePercentage.store(cpuUsage);
+	cpuModel.TotalCpuFreePercentage.store(cpuFree);
+	cpuModel.NumberOfCores.store(GetTotalCoreNumber());
+
+	return cpuModel;
+}

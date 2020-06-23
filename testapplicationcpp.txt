@@ -1,0 +1,83 @@
+#include "TestApplication.h"
+#include "ui_TestApplication.h"
+#include "VmsSystemResourceManager.h"
+#include "VmsSignInWidget.h"
+#include <QDateTime>
+#include "qblowfish.h"
+#include "../../build/src/VmsSystemResourceManager/ui_VmsSystemResourceWidget.h"
+
+FactoryProduct<Base1, Base>  _base1("base1");
+FactoryProduct<Base2, Base>  _base2("base2");
+FactoryProduct<Base1_, Base_> _base1_("base1");
+FactoryProduct<Base2_, Base_> _base12_("base2");
+
+TestSignIn::TestSignIn() : VmsSignInWidget(nullptr)
+{
+	m_Blowfish->initBoxes();
+}
+
+TestApplication::TestApplication(QWidget *parent)
+	:QMainWindow(parent), ui(new Ui::MainWindow)
+{
+	ui->setupUi(this);
+	m_TestTreeWidget = new TestTreeWidget();
+	m_TestTreeWidget->RefreshTree();
+	ui->treeLayout->addWidget(m_TestTreeWidget);
+
+	m_WorkspaceManager = new Vms::GuiWidgets::VmsWorkspaceManager(nullptr, new TestWidgetCreator());
+	m_WorkspaceManager->Init(ui->menuView);
+	ui->workspaceLayout->addWidget(m_WorkspaceManager);
+
+	//QVector<QString> ips;
+	//ips.push_back("1.1.1.1");
+	//ips.push_back("2.2.2.2");
+	//Vms::GuiWidgets::VmsSignInWidget* signInWidget = new Vms::GuiWidgets::VmsSignInWidget(nullptr, ips);
+	//signInWidget->show();
+	//signInWidget->raise();
+	/*m_TestDatabaseHandler = new TestDatabaseHandler();
+	auto res = m_TestDatabaseHandler->GetAllCameras();
+	for (int i = 0; i < 10; ++i)
+	{
+		auto row = res.record(i);
+
+		qDebug() << row;
+
+	}*/
+
+	VmsFactory<Base>::Instance().Produce("base1")->base();
+	VmsFactory<Base>::Instance().Produce("base2")->base();
+	VmsFactory<Base_>::Instance().Produce("base1")->base();
+	VmsFactory<Base_>::Instance().Produce("base2")->base();
+	
+	qDebug() << "\n******MEMORY INFO******";
+	qDebug() <<"Memory Percentage :" << QString::number(Vms::SystemResource::VmsSystemResourceManager::Instance().GetMemoryInfo().MemoryUsagePercentage);
+	
+	qDebug() << "\n******DISK INFO******";
+	for (int i = 0; i <1; i++)
+	{
+		qDebug() << "Total :" << QString::number(Vms::SystemResource::VmsSystemResourceManager::Instance().GetDiskInfo().at(i).Total);
+		qDebug() << "Free :" << QString::number(Vms::SystemResource::VmsSystemResourceManager::Instance().GetDiskInfo().at(i).Free);
+		qDebug() << "Used Percentage :" << QString::number(Vms::SystemResource::VmsSystemResourceManager::Instance().GetDiskInfo().at(i).UsedPercentage);
+	}
+
+	qDebug() << "\n******NETWORK INFO******";
+	for (int i = 0; i <1 ; i++)
+	{
+		qDebug()<<"Received :" << QString::number(Vms::SystemResource::VmsSystemResourceManager::Instance().GetNetworkInfo().at(i).ReceivedBytesPerSecond);
+		qDebug()<<"Sent :" << QString::number(Vms::SystemResource::VmsSystemResourceManager::Instance().GetNetworkInfo().at(i).SentBytesPerSecond);
+	}
+
+	std::thread([=] {
+		while (true)
+		{
+			qDebug() << "\n******CPU INFO******";
+			qDebug() << "Total Core Number :" << QString::number(Vms::SystemResource::VmsSystemResourceManager::Instance().GetCpuInfo().NumberOfCores);
+			qDebug() << "Total CPU Used Percentage :" << QString::number(Vms::SystemResource::VmsSystemResourceManager::Instance().GetCpuInfo().TotalCpuUsagePercentage);
+			Sleep(1000);
+		}
+	}).detach();
+}
+
+TestApplication::~TestApplication()
+{
+}
